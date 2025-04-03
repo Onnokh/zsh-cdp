@@ -1,13 +1,23 @@
 # Path to the configuration file for storing PROJECTS_DIR within the plugin folder
 CDP_CONFIG_FILE="${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/cdp/.cdp_config"
 
-# Load the PROJECTS_DIR from the config file if it exists
+# Default directory if no configuration is found
+PROJECTS_DIR=~/dev/sites
+
+# Cache for project directories
+typeset -g _CDP_PROJECT_CACHE
+typeset -g _CDP_CACHE_TIMESTAMP
+
+# Load config once at plugin load
 if [ -f "$CDP_CONFIG_FILE" ]; then
   source "$CDP_CONFIG_FILE"
-else
-  # Default directory if no configuration is found
-  PROJECTS_DIR=~/dev/sites
 fi
+
+# Function to refresh project cache
+_cdp_refresh_cache() {
+  _CDP_PROJECT_CACHE=("${(@)${(@f)$(print -l $PROJECTS_DIR/*(/N:t))}}")
+  _CDP_CACHE_TIMESTAMP=$EPOCHSECONDS
+}
 
 # Define the cdp function
 cdp() {
@@ -17,6 +27,8 @@ cdp() {
     PROJECTS_DIR="$2"
     echo "export PROJECTS_DIR=\"$PROJECTS_DIR\"" > "$CDP_CONFIG_FILE"
     echo "PROJECTS_DIR set to: $PROJECTS_DIR"
+    # Refresh cache when directory changes
+    _cdp_refresh_cache
     return 0
   fi
 
@@ -32,25 +44,26 @@ cdp() {
 
 # Autocomplete function using Zsh's completion system
 _cdp_complete() {
-  local word
-  # Ensure PROJECTS_DIR is updated with the current value
-  source "$CDP_CONFIG_FILE"
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
 
-  word="${COMP_WORDS[1]}"
+  _arguments \
+    '--folder[Set projects directory]:directory:_path_files -/' \
+    '*:project:->projects'
 
-  # Get only the last part of the folder name
-  local project_dirs
-  project_dirs=($(ls -d $PROJECTS_DIR/*/))
-
-  # Extract only the last part (folder names) and use compadd
-  local folder_names=()
-  for dir in $project_dirs; do
-    folder_names+=($(basename "$dir"))
-  done
-
-  # Use compadd to provide the folder names as autocomplete options
-  compadd "${folder_names[@]}"
+  case $state in
+    projects)
+      # Refresh cache if it's older than 5 minutes or empty
+      if [[ -z $_CDP_PROJECT_CACHE || $((EPOCHSECONDS - _CDP_CACHE_TIMESTAMP)) -gt 300 ]]; then
+        _cdp_refresh_cache
+      fi
+      _describe 'projects' _CDP_PROJECT_CACHE
+      ;;
+  esac
 }
 
 # Register the completion function
 compdef _cdp_complete cdp
+
+# Initialize cache
+_cdp_refresh_cache
