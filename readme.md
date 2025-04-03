@@ -66,7 +66,3 @@ The plugin assumes that your projects are located under `~/dev/sites`. If your p
 ```sh
 cdp --folder ~/path/to/your/projects
 ```
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
