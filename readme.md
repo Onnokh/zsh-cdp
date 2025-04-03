@@ -1,5 +1,4 @@
-# zsh-cdp Plugin
-
+# zsh-cdp plugin
 The `zsh-cdp` plugin is a Zsh utility that helps you quickly navigate to project directories with autocomplete support.
 
 ## Installation
